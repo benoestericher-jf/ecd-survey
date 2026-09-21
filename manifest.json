@@ -1,16 +1,15 @@
 {
-  "name": "ECD & Childcare Centre Survey — Jackfruit × Open Capital",
+  "name": "Jackfruit · ECD & Childcare Survey",
   "short_name": "ECD Survey",
-  "description": "Offline field questionnaire for ECD, daycare and home-based childcare centres in Northern Kenya and Uganda.",
-  "start_url": "./",
+  "description": "Offline survey tool for the Jackfruit × Open Capital ECD scoping study.",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait-primary",
-  "background_color": "#f6f8f6",
-  "theme_color": "#14532d",
+  "orientation": "portrait",
+  "background_color": "#193F44",
+  "theme_color": "#193F44",
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]
 }

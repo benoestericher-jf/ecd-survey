@@ -1,182 +1,36 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#14532d">
-<title>ECD &amp; Childcare Centre Survey — Jackfruit × Open Capital</title>
-<link rel="manifest" href="manifest.json">
-<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="stylesheet" href="css/styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#193F44" />
+  <title>Jackfruit · ECD & Childcare Survey</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-
-<header class="topbar">
-  <a href="#" id="brandHome" class="brand">
-    <span class="brand-mark">JF</span>
-    <span class="brand-text">
-      <strong>ECD &amp; Childcare Survey</strong>
-      <small>Jackfruit × Open Capital</small>
-    </span>
-  </a>
-  <span id="netPill" class="net-pill">Online</span>
-</header>
-
-<main>
-
-  <!-- ============ HOME ============ -->
-  <section id="screen-home" class="screen active">
-    <div class="wrap">
-      <h1>Start a survey</h1>
-      <p class="lede">Choose your name. Everything else — currency, geography, place names — follows from it.</p>
-      <div id="enumList" class="enum-list"></div>
-      <p id="lastEnum" class="muted small"></p>
-
-      <div class="home-actions">
-        <button class="btn-secondary" onclick="App.showDrafts()">Saved responses</button>
-        <button class="btn-secondary" onclick="App.showSync()">Sync &amp; export</button>
-      </div>
-      <p id="homeCounts" class="muted small"></p>
-
-      <div class="callout">
-        <strong>Works with no signal.</strong>
-        Answers are saved on this device as you type. Sync to the Google Sheet, or export a CSV, whenever you next have a connection.
-      </div>
+  <header class="appbar">
+    <div class="brand">Jackfruit · Open Capital
+      <small>ECD &amp; Childcare Survey</small>
     </div>
-  </section>
+    <div class="spacer"></div>
+    <div id="netDot" class="netdot offline"><span class="dot"></span><span id="netText">Offline</span></div>
+    <button id="menuBtn" class="iconbtn" title="Settings">☰</button>
+  </header>
 
-  <!-- ============ NEW ============ -->
-  <section id="screen-new" class="screen">
-    <div class="wrap">
-      <button class="btn-back" onclick="App.showHome()">← Back</button>
-      <h1>What kind of centre is this?</h1>
-      <p id="newFor" class="lede"></p>
-      <div id="typeList" class="type-list"></div>
-      <p class="muted small">Standalone ECD / daycare centres and home-based childcare go to the daycare &amp; home-based questionnaire. Everything else uses the ECD centre questionnaire.</p>
-    </div>
-  </section>
+  <main id="app"><!-- screens render here --></main>
 
-  <!-- ============ DRAFTS ============ -->
-  <section id="screen-drafts" class="screen">
-    <div class="wrap">
-      <button class="btn-back" onclick="App.showHome()">← Back</button>
-      <h1>Saved responses</h1>
-      <div id="draftList" class="draft-list"></div>
-    </div>
-  </section>
+  <div id="toast" class="toast"></div>
+  <div id="modalRoot"></div>
 
-  <!-- ============ FORM ============ -->
-  <section id="screen-form" class="screen form-screen">
-    <div class="form-head">
-      <div class="wrap">
-        <h1 id="formTitle"></h1>
-        <p id="formSub" class="form-sub"></p>
-        <div class="progress"><span id="formBar"></span></div>
-        <div class="form-meta">
-          <span id="formProg"></span>
-          <span id="saveState" class="save-state"></span>
-        </div>
-      </div>
-    </div>
-    <div class="form-layout wrap">
-      <nav id="rail" class="rail"></nav>
-      <div class="form-main">
-        <div id="formErrors" class="form-errors"></div>
-        <div id="formBody"></div>
-        <div class="form-nav">
-          <button id="navPrev" class="btn-secondary" onclick="App.prev()">← Previous</button>
-          <span id="navPos" class="muted small"></span>
-          <button id="navNext" class="btn-primary" onclick="App.next()">Next →</button>
-        </div>
-        <div class="form-foot">
-          <button class="btn-mini" onclick="App.leaveToHome()">Save &amp; close</button>
-          <button class="btn-mini" onclick="App.review()">Go to review</button>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ REVIEW ============ -->
-  <section id="screen-review" class="screen">
-    <div class="wrap">
-      <button class="btn-back" onclick="App.screen('form')">← Back to the form</button>
-      <h1>Review &amp; submit</h1>
-      <div id="reviewBody"></div>
-      <div class="submit-row">
-        <button id="submitBtn" class="btn-primary big" onclick="App.submit()">Mark complete &amp; queue for sync</button>
-        <p id="submitNote" class="muted small"></p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ SYNC ============ -->
-  <section id="screen-sync" class="screen">
-    <div class="wrap">
-      <button class="btn-back" onclick="App.showHome()">← Back</button>
-      <h1>Sync &amp; export</h1>
-      <p id="syncCounts" class="lede"></p>
-
-      <div class="panel">
-        <h2>Google Sheet</h2>
-        <p id="syncMode" class="sync-mode"></p>
-        <p class="muted small">Completed responses also sync on their own whenever you submit one with a connection. Use the button below to push anything still queued.</p>
-        <div class="btn-row">
-          <button class="btn-secondary" onclick="App.testSync()">Test connection</button>
-          <button id="syncBtn" class="btn-primary" onclick="App.doSync()">Sync completed responses</button>
-        </div>
-        <p id="syncStatus" class="sync-status"></p>
-        <details class="advanced">
-          <summary>Advanced — change the destination</summary>
-          <p class="muted small">Only needed if the Apps Script is redeployed to a new URL before this app can be updated. Leave blank to use the built-in one.</p>
-          <label class="field">
-            <span>Web app URL</span>
-            <input id="syncEndpoint" type="url" placeholder="https://script.google.com/macros/s/…/exec">
-          </label>
-          <label class="field">
-            <span>Shared token (optional)</span>
-            <input id="syncToken" type="text" placeholder="Must match SHARED_TOKEN in the script">
-          </label>
-          <button class="btn-mini" onclick="App.resetEndpoint()">Restore built-in endpoint</button>
-        </details>
-      </div>
-
-      <div class="panel">
-        <h2>Export</h2>
-        <p class="muted small">One row per response. Photos are not included in the CSV — use the JSON backup for those.</p>
-        <div class="btn-row">
-          <button class="btn-secondary" onclick="App.exportCSV('all')">CSV — all</button>
-          <button class="btn-secondary" onclick="App.exportCSV('ecd')">CSV — ECD centres</button>
-          <button class="btn-secondary" onclick="App.exportCSV('daycare')">CSV — daycare</button>
-          <button class="btn-secondary" onclick="App.exportJSON()">JSON backup (with photos)</button>
-        </div>
-      </div>
-
-      <div class="panel">
-        <h2>Restore from a backup</h2>
-        <input type="file" accept="application/json" onchange="if(this.files[0])App.importJSON(this.files[0])">
-        <p id="syncStorage" class="muted small"></p>
-      </div>
-    </div>
-  </section>
-
-</main>
-
-<div id="toast" class="toast"></div>
-
-<script src="js/reference.js"></script>
-<script src="js/schema-ecd.js"></script>
-<script src="js/schema-daycare.js"></script>
-<script src="js/store.js"></script>
-<script src="js/engine.js"></script>
-<script src="js/render.js"></script>
-<script src="js/export.js"></script>
-<script src="js/sync.js"></script>
-<script src="js/app.js"></script>
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
-}
-</script>
+  <script src="centres.js"></script>
+  <script src="schema.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
