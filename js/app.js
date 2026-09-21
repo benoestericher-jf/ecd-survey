@@ -2,7 +2,7 @@
    App shell: screens, navigation, autosave, review & submit.
    ------------------------------------------------------------------ */
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 
 const App = {
   record: null,
@@ -474,6 +474,13 @@ const App = {
     const pending = all.filter(r => r.status === 'complete');
     document.getElementById('syncCounts').textContent =
       `${all.length} on device · ${pending.length} ready to sync · ${all.filter(r => r.status === 'synced').length} already synced · ${all.filter(r => r.status === 'draft').length} still drafts`;
+    const mode = document.getElementById('syncMode');
+    if (mode) {
+      mode.textContent = Sync.usingDefault()
+        ? 'Using the built-in endpoint — nothing to set up on this phone.'
+        : 'Using a custom endpoint set on this device.';
+      mode.className = 'sync-mode ' + (Sync.usingDefault() ? 'default' : 'custom');
+    }
     const est = await Store.estimate();
     document.getElementById('syncStorage').textContent = est && est.usage
       ? `Local storage used: ${(est.usage / 1048576).toFixed(1)} MB of ~${(est.quota / 1048576).toFixed(0)} MB available`
@@ -507,6 +514,13 @@ const App = {
     st.textContent = 'Testing…';
     try { const d = await Sync.test(); st.textContent = 'Endpoint OK — ' + (d.sheet || 'connected') + '.'; }
     catch (e) { st.textContent = 'Test failed: ' + e.message; }
+  },
+
+  /* Escape hatch: undo a bad hand-typed endpoint without reinstalling. */
+  resetEndpoint() {
+    Sync.resetToDefault();
+    this.showSync();
+    document.getElementById('syncStatus').textContent = 'Restored the built-in endpoint.';
   },
 
   async exportCSV(which) {

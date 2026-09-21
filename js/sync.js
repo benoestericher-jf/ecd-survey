@@ -6,13 +6,34 @@
    record that is marked complete but not yet synced.
    ------------------------------------------------------------------ */
 
+/* Built into the app so enumerators never have to type anything.
+   A device can still override it (Sync & export) if the script is ever
+   redeployed to a new URL before everyone can update the app. */
+const DEFAULT_ENDPOINT = 'https://script.google.com/macros/s/AKfycbx-QH5K02E5HsBMeU5X9a3zeOGBBz4qvKmL-dJx6fgOvbIiP_eMtDuf6PEt5c1x5sI2/exec';
+const DEFAULT_TOKEN = '';
+
 const Sync = {
-  get endpoint() { return Store.setting('sheets_endpoint') || ''; },
-  set endpoint(v) { Store.setting('sheets_endpoint', v); },
-  get token() { return Store.setting('sheets_token') || ''; },
-  set token(v) { Store.setting('sheets_token', v); },
+  get endpoint() { return Store.setting('sheets_endpoint') || DEFAULT_ENDPOINT; },
+  set endpoint(v) {
+    // Only persist a genuine override; blank or same-as-built-in falls back.
+    const t = (v || '').trim();
+    Store.setting('sheets_endpoint', (!t || t === DEFAULT_ENDPOINT) ? null : t);
+  },
+  get token() {
+    const o = Store.setting('sheets_token');
+    return (o === null || o === undefined) ? DEFAULT_TOKEN : o;
+  },
+  set token(v) {
+    const t = (v || '').trim();
+    Store.setting('sheets_token', t === DEFAULT_TOKEN ? null : t);
+  },
 
   configured() { return !!this.endpoint; },
+  usingDefault() { return this.endpoint === DEFAULT_ENDPOINT; },
+  resetToDefault() {
+    Store.setting('sheets_endpoint', null);
+    Store.setting('sheets_token', null);
+  },
 
   async pushOne(record) {
     if (!this.configured()) throw new Error('No Google Sheets endpoint configured.');

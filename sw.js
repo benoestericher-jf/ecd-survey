@@ -1,5 +1,5 @@
 /* Offline shell. Cache-first for the app, never for the sync endpoint. */
-const CACHE = 'ecd-survey-v1.0.0';
+const CACHE = 'ecd-survey-v1.1.0';
 const ASSETS = [
   './', './index.html', './css/styles.css', './manifest.json',
   './js/reference.js', './js/schema-ecd.js', './js/schema-daycare.js',

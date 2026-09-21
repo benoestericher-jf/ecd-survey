@@ -32,12 +32,18 @@ in one spreadsheet.
 
 ## 3. Point the app at it
 
-On each enumerator's device: open the app → **Sync & export** → paste the
-web app URL and the shared token → **Test connection** → **Sync completed
-responses**.
+Nothing to do — the `/exec` URL is compiled into the app as
+`DEFAULT_ENDPOINT` in [`../js/sync.js`](../js/sync.js). Enumerators just use
+the app: completed responses sync on submit, and anything captured offline
+goes up when they next tap **Sync completed responses**.
 
-The URL is stored on that device only. It is not in the source code, so
-the repo can stay public.
+If you redeploy to a **new** URL, update `DEFAULT_ENDPOINT` and push — or, as
+a stopgap on one phone, set it under **Sync & export → Advanced** (with
+**Restore built-in endpoint** to undo).
+
+Because the repo is public, so is the endpoint. It is append-only and cannot
+read or alter the sheet; to lock it down further, set `SHARED_TOKEN` above and
+the matching `DEFAULT_TOKEN` in `js/sync.js`.
 
 ## What the script does
 

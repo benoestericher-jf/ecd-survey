@@ -309,3 +309,11 @@ button { font:inherit; }
   .screen { display:block !important; }
   .group { break-inside:avoid; box-shadow:none; }
 }
+
+/* Sync destination status + the advanced override drawer */
+.sync-mode { font-size:.88rem; font-weight:600; padding:9px 12px; border-radius:9px; margin:0 0 10px; }
+.sync-mode.default { background:var(--green-50); color:var(--green-900); border:1px solid var(--green-100); }
+.sync-mode.custom { background:#fffbeb; color:#7c2d12; border:1px solid #fde68a; }
+.advanced { margin-top:14px; border-top:1px solid var(--line); padding-top:10px; }
+.advanced summary { cursor:pointer; font-size:.85rem; color:var(--ink-2); padding:4px 0; }
+.advanced[open] summary { margin-bottom:6px; }

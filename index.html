@@ -119,20 +119,26 @@
 
       <div class="panel">
         <h2>Google Sheet</h2>
-        <p class="muted small">Paste the web-app URL from the Apps Script deployment (see <code>apps-script/README.md</code> in the repo). Set once per device.</p>
-        <label class="field">
-          <span>Web app URL</span>
-          <input id="syncEndpoint" type="url" placeholder="https://script.google.com/macros/s/…/exec">
-        </label>
-        <label class="field">
-          <span>Shared token (optional)</span>
-          <input id="syncToken" type="text" placeholder="Must match SHARED_TOKEN in the script">
-        </label>
+        <p id="syncMode" class="sync-mode"></p>
+        <p class="muted small">Completed responses also sync on their own whenever you submit one with a connection. Use the button below to push anything still queued.</p>
         <div class="btn-row">
           <button class="btn-secondary" onclick="App.testSync()">Test connection</button>
           <button id="syncBtn" class="btn-primary" onclick="App.doSync()">Sync completed responses</button>
         </div>
         <p id="syncStatus" class="sync-status"></p>
+        <details class="advanced">
+          <summary>Advanced — change the destination</summary>
+          <p class="muted small">Only needed if the Apps Script is redeployed to a new URL before this app can be updated. Leave blank to use the built-in one.</p>
+          <label class="field">
+            <span>Web app URL</span>
+            <input id="syncEndpoint" type="url" placeholder="https://script.google.com/macros/s/…/exec">
+          </label>
+          <label class="field">
+            <span>Shared token (optional)</span>
+            <input id="syncToken" type="text" placeholder="Must match SHARED_TOKEN in the script">
+          </label>
+          <button class="btn-mini" onclick="App.resetEndpoint()">Restore built-in endpoint</button>
+        </details>
       </div>
 
       <div class="panel">

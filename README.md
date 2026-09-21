@@ -135,7 +135,7 @@ launch.
 ## Where the data goes
 
 1. **On device**, always — IndexedDB, one record per response.
-2. **Google Sheet**, when synced — one row per response, one tab per
+2. **Google Sheet**, automatically — one row per response, one tab per
    questionnaire, keyed on `response_id` so re-syncing a corrected response
    updates its row instead of duplicating it. Setup:
    [`apps-script/README.md`](apps-script/README.md).
@@ -143,8 +143,23 @@ launch.
    time. The JSON backup includes photos and can be re-imported on another
    device.
 
-The sync URL and token are entered per device and stored locally. They are
-**not** in this repo, so it can stay public.
+The Apps Script endpoint is **built into the app** (`DEFAULT_ENDPOINT` in
+`js/sync.js`), so an enumerator never types a URL. A completed response syncs
+by itself the moment it is submitted with a connection; anything submitted
+offline stays queued and goes up on the next **Sync completed responses**.
+A device can still override the destination under **Sync & export →
+Advanced**, with a "Restore built-in endpoint" button to undo it — that
+override is only needed if the script is redeployed to a new URL before the
+app itself can be updated.
+
+> **Note on the embedded endpoint.** This repo is public, so the endpoint URL
+> is public. The Apps Script only ever *appends* rows — it cannot read the
+> sheet, edit existing data or delete anything — so the worst case is junk
+> rows, which are traceable in the **Sync log** tab and easy to remove. To
+> close that off, set `SHARED_TOKEN` in `Code.gs`, set the matching
+> `DEFAULT_TOKEN` in `js/sync.js`, and redeploy both. To cut off a leaked
+> endpoint entirely, deploy a new Apps Script version, which issues a fresh
+> URL, and update `DEFAULT_ENDPOINT`.
 
 ---
 
