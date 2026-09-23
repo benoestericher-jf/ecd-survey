@@ -645,9 +645,19 @@ const ECD_SECTIONS = [
           options:["Clearly knew or could check numbers","Reasonable estimates","Vague or unclear"] },
         { id:"obs_area", label:"Area where the centre is located", type:"select", options:AREA_TYPE },
         { id:"obs_red_flags", label:"Any concerns or red flags not captured elsewhere", type:"textarea" },
-        { id:"obs_premises_photo", label:"Photograph of the premises", type:"photo" },
+      ]},
+    ]
+  },
+
+  {
+    section: "Section X · Photos & documents",
+    note: "The last step. Attach the consent form and any photographs before you submit.",
+    groups: [
+      { title:"Photos & documents", note:"The last step. Each field takes as many photos as you need — tap it again to add another.", questions:[
         { id:"obs_consent_form", label:"Signed data privacy consent form", type:"photo",
-          help:"Upload a photo of the completed consent form." },
+          help:"Photograph the completed and signed consent form before leaving the centre." },
+        { id:"photo_premises", label:"Premises", type:"photo",
+          help:"Outside and signage, plus the learning and play areas." },
       ]},
     ]
   },
@@ -1101,9 +1111,19 @@ const DAYCARE_SECTIONS = [
         { id:"obs_area", label:"Area where the centre is located", type:"select", options:AREA_TYPE },
         { id:"ea_overall_potential", label:"Overall financing potential", type:"select", options:["High","Medium","Low"] },
         { id:"ea_comments", label:"Enumerator comments", type:"textarea" },
-        { id:"obs_premises_photo", label:"Photograph of the premises", type:"photo" },
+      ]},
+    ]
+  },
+
+  {
+    section: "Section 19 · Photos & documents",
+    note: "The last step. Attach the consent form and any photographs before you submit.",
+    groups: [
+      { title:"Photos & documents", note:"The last step. Each field takes as many photos as you need — tap it again to add another.", questions:[
         { id:"obs_consent_form", label:"Signed data privacy consent form", type:"photo",
-          help:"Upload a photo of the completed consent form." },
+          help:"Photograph the completed and signed consent form before leaving the centre." },
+        { id:"photo_premises", label:"Premises", type:"photo",
+          help:"Outside and signage, plus the learning and play areas." },
       ]},
     ]
   },

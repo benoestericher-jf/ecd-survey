@@ -232,6 +232,7 @@
           <div class="small">${esc(s.centreType || "—")} · ${esc((window.SURVEY.COUNTRIES[s.country]||{}).currency || "")} · ${fmtDate(s.updatedAt)}</div>
         </div>
         <span class="badge ${s.status}">${statusLabel(s.status)}</span>
+        ${s.status === "error" && s.syncError ? `<div class="sync-err" title="${esc(s.syncError)}">${esc(s.syncError)}</div>` : ""}
         ${editBtn}
         ${delBtn}
       </div>`;
@@ -907,6 +908,19 @@
     return /^[1245679]\d{8}$/.test(d);
   }
 
+  // Every photo on the survey, with a rough stored size (base64 ~ 4/3 of bytes).
+  function photoTally() {
+    const a = state.current ? state.current.answers : {};
+    let count = 0, bytes = 0;
+    Object.keys(a).forEach(k => {
+      const v = a[k];
+      if (Array.isArray(v) && v.length && v[0] && v[0].dataUrl) {
+        v.forEach(ph => { count++; bytes += Math.round((ph.dataUrl || "").length * 0.75); });
+      }
+    });
+    return { count, bytes, mb: bytes / 1048576 };
+  }
+
   // Soft data-quality warnings (never block submission).
   function dataWarnings() {
     const a = state.current.answers, w = [];
@@ -1000,6 +1014,14 @@
     if (a.centre_phone != null && String(a.centre_phone).trim() !== "" && !isValidPhone(a.centre_phone, CO().code))
       w.push({ msg: `Phone number (${a.centre_phone}) doesn't look like a valid ${CO().name} number`, qid: "centre_phone" });
 
+    /* photos */
+    const consent = a.obs_consent_form;
+    if (!(Array.isArray(consent) && consent.length) && !fieldStatusOf("obs_consent_form"))
+      w.push({ msg: "No signed consent form photographed", qid: "obs_consent_form" });
+    const pt = photoTally();
+    if (pt.mb > 8)
+      w.push({ msg: `${pt.count} photos attached (about ${pt.mb.toFixed(1)} MB) — syncing may be slow on a weak connection`, qid: "photo_other" });
+
     return w;
   }
 
@@ -1033,6 +1055,16 @@
         <p class="help" style="margin-top:-2px">Pre-filled from the sample list and stored alongside the survey.</p>
         ${rows}</div>`;
     }
+    const pt = photoTally();
+    const photoCard = `<div class="card">
+      <div class="group-head" style="margin-top:0">Photos attached</div>
+      <p class="help" style="margin-top:-2px">${pt.count
+        ? `${pt.count} photo${pt.count === 1 ? "" : "s"}, about ${pt.mb < 0.1 ? "<0.1" : pt.mb.toFixed(1)} MB. They upload with the survey.`
+        : "No photos attached yet."}</p>
+      <div class="fixrow"><span>Add or review photos</span>
+        <button class="btn-fix" data-fix="obs_consent_form">Open</button></div>
+    </div>`;
+
     let missingCard = "";
     const miss = missingQuestions();
     if (miss.length) {
@@ -1059,7 +1091,7 @@
       <div class="screen">
         <h1 class="page-title">Review</h1>
         <p class="sub">${esc(state.enumerator)} · ${esc(CO().name)} · all money in ${esc(CUR())}. Check the answers, then submit. Submitted data syncs when you’re online.</p>
-        ${warnCard}${missingCard}${refCard}${html || '<p class="kv">No answers recorded.</p>'}
+        ${warnCard}${missingCard}${photoCard}${refCard}${html || '<p class="kv">No answers recorded.</p>'}
       </div>
       <div class="footnav">
         <button class="btn btn-ghost" id="reviewExit">Exit</button>
@@ -1116,7 +1148,7 @@
     if (navigator.onLine && state.endpoint) {
       toast("Submitting…");
       const ok = await syncOne(state.current);
-      toast(ok ? "Submitted & synced ✓" : "Saved — will sync later");
+      toast(ok ? "Submitted & synced ✓" : ("Saved on device — " + (state.current.syncError || "will sync later")));
     } else {
       toast(state.endpoint ? "Saved offline — will sync when online" : "Saved. Set sync URL in ☰ to upload");
     }
@@ -1128,7 +1160,7 @@
   async function syncOne(sub) {
     if (!state.endpoint) return false;
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 30000); // never hang forever
+    let timer = setTimeout(() => ctrl.abort(), 30000); // replaced once the size is known
     try {
       const payload = {
         id: sub.id, enumerator: sub.enumerator, centreType: sub.centreType,
@@ -1141,17 +1173,35 @@
         autoGeo: sub.autoGeo,
         createdAt: sub.createdAt, completedAt: sub.completedAt || sub.updatedAt,
       };
+      const body = JSON.stringify(payload);
+      // 30s base, plus 20s per MB of photos, capped at 5 minutes. A survey with
+      // a dozen photos on a 2G connection needs far longer than a bare one.
+      clearTimeout(timer);
+      const budget = Math.min(300000, 30000 + Math.round((body.length / 1048576) * 20000));
+      timer = setTimeout(() => ctrl.abort(), budget);
       const res = await fetch(state.endpoint, {
         method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify(payload), signal: ctrl.signal, redirect: "follow",
+        body: body, signal: ctrl.signal, redirect: "follow",
       });
-      const out = await res.json().catch(() => ({}));
+      const text = await res.text();
+      let out = null;
+      try { out = JSON.parse(text); } catch (e) { /* not JSON — see below */ }
       if (out && out.ok) {
-        sub.status = "synced"; sub.syncedAt = Date.now(); await idbPut("submissions", sub); return true;
+        sub.status = "synced"; sub.syncedAt = Date.now(); delete sub.syncError;
+        await idbPut("submissions", sub); return true;
       }
-      sub.status = "error"; await idbPut("submissions", sub); return false;
+      // Keep WHY it failed. Without this a wrong/stale Apps Script deployment
+      // just reads as "Sync failed" with no way to tell what went wrong.
+      sub.status = "error";
+      sub.syncError = out && out.error ? out.error
+        : (!res.ok ? ("HTTP " + res.status)
+        : (/^\s*</.test(text) ? "the endpoint returned a web page, not data — check the deployment is a Web App with access set to Anyone"
+        : ("unexpected reply: " + String(text).slice(0, 120))));
+      await idbPut("submissions", sub); return false;
     } catch (e) {
-      sub.status = "error"; await idbPut("submissions", sub); return false;
+      sub.status = "error";
+      sub.syncError = (e && e.name === "AbortError") ? "timed out — connection too slow or payload too large" : String(e && e.message || e);
+      await idbPut("submissions", sub); return false;
     } finally {
       clearTimeout(timer);
     }
@@ -1207,7 +1257,12 @@
       _syncing = false; // always release, even if a request hung or threw
     }
     const total = uploads.length + deletes.length;
-    toast(done === total ? `Synced ${done} ✓` : `Synced ${done} of ${total} — others will retry`);
+    if (done === total) toast(`Synced ${done} ✓`);
+    else {
+      const all2 = await idbAll("submissions");
+      const firstErr = (all2.find(x => x.status === "error" && x.syncError) || {}).syncError;
+      toast(firstErr ? `Synced ${done} of ${total} — ${firstErr}` : `Synced ${done} of ${total} — others will retry`);
+    }
     if (!state.current) renderHome();
   }
 
@@ -1221,6 +1276,10 @@
         <input type="text" id="setEndpoint" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(state.endpoint||"")}" />
         <div class="help">Where submissions and photos are sent. From your deployed Apps Script web app.</div>
       </div>
+      <div class="row" style="margin-bottom:10px">
+        <button class="btn btn-outline" id="testSync">Test sync</button>
+      </div>
+      <p id="testResult" class="help" style="margin:-4px 0 12px"></p>
       <div class="row" style="margin-bottom:10px">
         <button class="btn btn-outline" id="exportJson">Export JSON</button>
         <button class="btn btn-outline" id="exportCsv">Export CSV</button>
@@ -1236,6 +1295,32 @@
     });
     $("#exportJson").addEventListener("click", exportJson);
     $("#exportCsv").addEventListener("click", exportCsv);
+    $("#testSync").addEventListener("click", async () => {
+      const out = $("#testResult");
+      const url = $("#setEndpoint").value.trim();
+      if (!url) { out.textContent = "Enter a sync URL first."; return; }
+      out.textContent = "Testing…";
+      try {
+        // Probe with a POST over exactly the path a real sync uses (text/plain,
+        // no preflight) so the test can't pass while real syncing fails.
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ action: "ping" }),
+          redirect: "follow",
+        });
+        const text = await res.text();
+        let d = null; try { d = JSON.parse(text); } catch (e) {}
+        if (d && d.ok) {
+          out.textContent = "Connected to “" + (d.spreadsheet || "the sheet") + "”" +
+            (d.version ? " · backend " + d.version : " · OLD backend, please update Code.gs") + ".";
+        } else if (/^\s*</.test(text)) {
+          out.textContent = "The URL returned a web page, not data. Re-deploy as a Web App with access set to Anyone.";
+        } else {
+          out.textContent = "Endpoint replied but not OK: " + String(text).slice(0, 140);
+        }
+      } catch (e) { out.textContent = "Could not reach the endpoint: " + (e && e.message || e); }
+    });
   }
   async function exportJson() {
     const all = await idbAll("submissions");
