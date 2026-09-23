@@ -431,22 +431,11 @@
     let body = "";
 
     switch (q.type) {
-      case "text": case "email": case "phone":
-        if (q.autocomplete) {
-          const ref = state.current.centreRef;
-          const matched = (ref && val && ref.name && ref.name.toLowerCase() === String(val).toLowerCase())
-            ? `<div class="ac-matched">✓ Matched <strong>${esc(ref.source)}</strong>${facCounty(ref) ? " · " + esc(facCounty(ref)) : ""} — known records attached (see review).</div>`
-            : (val ? `<div class="help" style="margin-top:6px">Not in the sample list — recorded as a new centre.</div>` : "");
-          body = `<div class="ac-wrap">
-            <input type="text" autocomplete="off" data-ac data-q="${q.id}" value="${esc(val||"")}" placeholder="${esc(q.placeholder||"")}" />
-            <div class="ac-results" data-acresults hidden></div>
-            ${matched}
-          </div>`;
-        } else {
-          const ph = q.type === 'phone' ? CO().phoneHint : (q.id === 'tax_id' ? CO().taxIdHint : (q.placeholder || ""));
-          body = `<input type="${q.type==='phone'?'tel':(q.inputType||'text')}" data-q="${q.id}" value="${esc(val||"")}" placeholder="${esc(ph)}" />`;
-        }
+      case "text": case "email": case "phone": {
+        const ph = q.type === 'phone' ? CO().phoneHint : (q.id === 'tax_id' ? CO().taxIdHint : (q.placeholder || ""));
+        body = `<input type="${q.type==='phone'?'tel':(q.inputType||'text')}" data-q="${q.id}" value="${esc(val||"")}" placeholder="${esc(ph)}" />`;
         break;
+      }
       case "textarea":
         body = `<textarea data-q="${q.id}" placeholder="${esc(q.placeholder||"")}">${esc(val||"")}</textarea>`;
         break;
@@ -610,23 +599,13 @@
   /* ===================== WIRE EVENTS =============================== */
   function wireQuestions(sec, a) {
     // text / number / date / email / phone / textarea (excluding the facility autocomplete)
-    app.querySelectorAll("[data-q]:not([data-ac])").forEach(el => {
+    app.querySelectorAll("[data-q]").forEach(el => {
       el.addEventListener("input", () => { setAnswer(el.dataset.q, el.value === "" ? undefined : el.value); });
-      el.addEventListener("change", () => { setAnswer(el.dataset.q, el.value === "" ? undefined : el.value); persist(); renderSection({keepScroll:true}); });
-    });
-    // facility-name searchable autocomplete
-    app.querySelectorAll("[data-ac]").forEach(el => {
-      const panel = el.parentElement.querySelector("[data-acresults]");
-      el.addEventListener("input", () => {
+      el.addEventListener("change", () => {
         setAnswer(el.dataset.q, el.value === "" ? undefined : el.value);
-        renderAcResults(panel, el.value);
-      });
-      el.addEventListener("focus", () => { if (el.value) renderAcResults(panel, el.value); });
-      el.addEventListener("blur", () => { setTimeout(() => { persist(); renderSection({keepScroll:true}); }, 200); });
-      if (panel) panel.addEventListener("click", (e) => {
-        const btn = e.target.closest("[data-acpick]"); if (!btn) return;
-        el.value = btn.dataset.acpick; setAnswer(el.dataset.q, btn.dataset.acpick);
-        persist(); panel.hidden = true; renderSection({keepScroll:true});
+        persist();
+        // Only repaint when something downstream actually depends on this answer.
+        if (affectsVisibility(el.dataset.q)) renderSection({ keepScroll: true });
       });
     });
     // percent unknown
@@ -694,6 +673,36 @@
       setAnswer(id, arr); persist();
     }));
   }
+  /* Does any showIf anywhere reference this field? Text inputs that nothing
+     depends on must NOT trigger a re-render on blur: the re-render detaches
+     the DOM, and a tap already on its way to the next control (typically the
+     centre-type chips, right after typing the name) lands on nothing and is
+     silently lost. */
+  let _visDeps = null;
+  function visibilityDeps() {
+    if (_visDeps) return _visDeps;
+    _visDeps = new Set();
+    const walk = (cond) => {
+      if (!cond) return;
+      if (cond.all) return cond.all.forEach(walk);
+      if (cond.any) return cond.any.forEach(walk);
+      if (cond.field) _visDeps.add(cond.field);
+    };
+    const all = [].concat(
+      window.SURVEY.buildSections(null),
+      window.SURVEY.buildSections("Standalone ECD / daycare centre")
+    );
+    all.forEach(sec => {
+      walk(sec.showIf);
+      (sec.groups || []).forEach(g => {
+        walk(g.showIf);
+        (g.questions || []).forEach(q => { walk(q.showIf); if (q.countField) _visDeps.add(q.countField); });
+      });
+    });
+    return _visDeps;
+  }
+  function affectsVisibility(id) { return visibilityDeps().has(id); }
+
   function findQ(sec, id) { for (const g of sec.groups) { const q = g.questions.find(q => q.id === id); if (q) return q; } return {}; }
   function setAnswer(id, v) {
     if (v === undefined) delete state.current.answers[id];
@@ -702,39 +711,6 @@
     // Changing the top-level location clears the cascade below it.
     if (id === "admin_l1") { delete state.current.answers.admin_l2; delete state.current.answers.admin_l3; }
     if (id === "admin_l2") { delete state.current.answers.admin_l3; }
-    if (id === "centre_name") {
-      const entry = lookupCentre(v);
-      state.current.centreRef = entry
-        ? { name: entry.name, type: entry.type, source: entry.source, fields: entry.fields }
-        : null;
-      // Auto-populate centre type + county from the matched sample record.
-      if (entry) {
-        const ct = centreTypeFromEntry(entry);
-        if (ct) {
-          state.current.answers.centre_type = ct;
-          state.current.centreType = ct;
-          if (state.current.fieldStatus) delete state.current.fieldStatus.centre_type;
-        }
-        const cty = adminL1FromEntry(entry);
-        if (cty) {
-          state.current.answers.admin_l1 = cty;
-          state.current.answers.obs_admin_l1 = cty;
-          if (state.current.fieldStatus) { delete state.current.fieldStatus.admin_l1; delete state.current.fieldStatus.obs_admin_l1; }
-        }
-      }
-    }
-  }
-  function centreTypeFromEntry(e) {
-    if (!e) return null;
-    const c = (e.fields && (e.fields.Category || e.fields.Type)) || "";
-    const match = (window.SURVEY.CENTRE_TYPES || []).find(t => t.toLowerCase() === String(c).toLowerCase());
-    return match || null;
-  }
-  function adminL1FromEntry(e) {
-    const f = (e && e.fields) || {};
-    let raw = f["County"] || f["District"] || f["Jackfruit county name"] || "";
-    raw = String(raw).replace(/\s*(County|District)$/i, "").trim();
-    return (CO().adminL1 || []).includes(raw) ? raw : null;
   }
   // Mark a question Refused / Doesn't know (instead of leaving it blank).
   function markStatus(id, status) {
@@ -745,63 +721,9 @@
   }
   function fieldStatusOf(id) { return (state.current.fieldStatus || {})[id]; }
 
-  /* ---- sample centre list (autocomplete + attached metadata) ------
-     window.CENTRE_LIST is supplied by centres.js. It ships empty: when a
-     sampling frame for ECD centres exists, drop it in and name matching,
-     auto-fill and the ref_* columns all start working with no code
-     change. Until then the field behaves as plain free text.          */
-  let _facIndex = null;
-  function facIndex() {
-    if (_facIndex) return _facIndex;
-    _facIndex = new Map();
-    (window.CENTRE_LIST || []).forEach(e => _facIndex.set(e.name.trim().toLowerCase(), e));
-    return _facIndex;
-  }
-  function lookupCentre(name) { return name ? (facIndex().get(String(name).trim().toLowerCase()) || null) : null; }
-  function facCounty(e) {
-    const f = (e && e.fields) || {};
-    return f["County"] || f["District"] || f["Jackfruit county name"] || "";
-  }
-  function facTypeLabel(e) { return (e.fields && (e.fields["Category"] || e.fields["Type"])) || "Centre"; }
-  // Substring search across name and county, ranked: name-prefix, then name-includes, then county.
-  function searchCentres(query) {
-    const q = String(query || "").trim().toLowerCase();
-    if (!q) return [];
-    const list = window.CENTRE_LIST || [];
-    const pre = [], inc = [], cty = [];
-    for (const e of list) {
-      const n = e.name.toLowerCase();
-      const i = n.indexOf(q);
-      if (i === 0) pre.push(e);
-      else if (i > 0) inc.push(e);
-      else if (facCounty(e).toLowerCase().includes(q)) cty.push(e);
-    }
-    return pre.concat(inc, cty).slice(0, 40);
-  }
-  function renderAcResults(el, query) {
-    const results = searchCentres(query);
-    if (!results.length) {
-      el.innerHTML = query.trim()
-        ? `<div class="ac-empty">No sample match — “${esc(query)}” will be saved as a new centre.</div>` : "";
-      el.hidden = !query.trim();
-      return;
-    }
-    el.innerHTML = results.map(e => `<button type="button" class="ac-item" data-acpick="${esc(e.name)}">
-      <span class="ac-name">${esc(e.name)}</span>
-      <span class="ac-sub">${esc([facCounty(e), facTypeLabel(e)].filter(Boolean).join(" · "))}</span>
-    </button>`).join("");
-    el.hidden = false;
-  }
-  // Flatten the matched record for the sheet / CSV (kept separate via ref_ prefix).
-  function refColumns(sub) {
-    const out = {};
-    if (sub && sub.centreRef) {
-      out["matched_sample"] = sub.centreRef.source + ": " + sub.centreRef.name;
-      const f = sub.centreRef.fields || {};
-      Object.keys(f).forEach(k => { out["ref_" + k] = f[k]; });
-    }
-    return out;
-  }
+  // Flatten any matched sample record for the sheet (ref_ prefix). No sample
+  // list ships with this survey, so this is a no-op unless one is added later.
+  function refColumns() { return {}; }
 
   /* ---------------- GPS capture (manual) --------------------------- */
   function captureGeo(qid) {
@@ -863,7 +785,7 @@
       sec.groups.forEach(g => g.questions.forEach(q => {
         if (q.type === "repeat") return;
         if (!questionVisible(q, a)) return;
-        if (!isAnswered(q, a)) out.push({ qid: q.id, secIdx: si, section: sec.section, label: q.label });
+        if (!isAnswered(q, a)) out.push({ qid: q.id, secIdx: si, section: sec.section, label: qLabel(q) });
       }));
     });
     return out;
@@ -1015,12 +937,36 @@
       w.push({ msg: `Phone number (${a.centre_phone}) doesn't look like a valid ${CO().name} number`, qid: "centre_phone" });
 
     /* photos */
-    const consent = a.obs_consent_form;
-    if (!(Array.isArray(consent) && consent.length) && !fieldStatusOf("obs_consent_form"))
-      w.push({ msg: "No signed consent form photographed", qid: "obs_consent_form" });
     const pt = photoTally();
     if (pt.mb > 8)
-      w.push({ msg: `${pt.count} photos attached (about ${pt.mb.toFixed(1)} MB) — syncing may be slow on a weak connection`, qid: "photo_other" });
+      w.push({ msg: `${pt.count} photos attached (about ${pt.mb.toFixed(1)} MB) — syncing may be slow on a weak connection`, qid: "obs_premises_photo" });
+
+    return w;
+  }
+
+  /* ===================== REVIEW & SUBMIT =========================== */
+  function renderReview() {
+    const a = state.current.answers;
+    const vis = visibleSectionIndexes();
+    let html = "";
+    vis.forEach(si => {
+      const sec = state.sections[si];
+      let rows = "";
+      sec.groups.forEach(g => g.questions.forEach(q => {
+        if (!questionVisible(q, a)) return;
+        const disp = displayValue(q, a);
+        if (disp === "" || disp == null) return;
+        rows += `<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">
+          <div style="flex:1;color:var(--muted);font-size:13px">${esc(qLabel(q))}</div>
+          <div style="flex:1;font-weight:600;font-size:14px">${disp}</div></div>`;
+      }));
+      if (rows) html += `<div class="card"><div class="group-head" style="margin-top:0">${esc(sec.section)}</div>${rows}</div>`;
+    });
+
+    const refCard = "";
+    const pt = photoTally();
+    if (pt.mb > 8)
+      w.push({ msg: `${pt.count} photos attached (about ${pt.mb.toFixed(1)} MB) — syncing may be slow on a weak connection`, qid: "obs_premises_photo" });
 
     return w;
   }
@@ -1062,7 +1008,7 @@
         ? `${pt.count} photo${pt.count === 1 ? "" : "s"}, about ${pt.mb < 0.1 ? "<0.1" : pt.mb.toFixed(1)} MB. They upload with the survey.`
         : "No photos attached yet."}</p>
       <div class="fixrow"><span>Add or review photos</span>
-        <button class="btn-fix" data-fix="obs_consent_form">Open</button></div>
+        <button class="btn-fix" data-fix="obs_premises_photo">Open</button></div>
     </div>`;
 
     let missingCard = "";

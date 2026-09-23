@@ -1,10 +1,9 @@
 /* Service worker — offline app shell caching */
-const CACHE = "jf-ecd-survey-v1";
+const CACHE = "jf-ecd-survey-v2";
 const SHELL = [
   "./",
   "./index.html",
   "./styles.css",
-  "./centres.js",
   "./schema.js",
   "./app.js",
   "./manifest.json",

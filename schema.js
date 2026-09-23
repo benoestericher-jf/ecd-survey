@@ -180,7 +180,20 @@ const LOAN_USES = ["Renovation / construction","Build or expand premises","Land 
 const INVEST_IN = ["Facility expansion / renovation","Learning materials & equipment","Playground / outdoor equipment","WASH improvements","Staff training or hiring","Digital tools"];
 const FINANCE_OPTS = ["Retained profits / savings","Loan","VSLA / savings group","Unsure"];
 
-/* repeating "outstanding loan" sub-form */
+/* repeating loan sub-form — daycare sheet's own columns */
+const DAYCARE_LOAN_ITEM = [
+  { id:"loan_lender", label:"Lender", type:"text" },
+  { id:"loan_original_amount", label:"Original amount", type:"integer", unit:"MONEY" },
+  { id:"loan_current_balance", label:"Current balance", type:"integer", unit:"MONEY" },
+  { id:"loan_instalment", label:"Instalment", type:"integer", unit:"MONEY" },
+  { id:"loan_frequency", label:"Frequency", type:"select",
+    options:["Daily","Weekly","Biweekly","Monthly","Quarterly"] },
+  { id:"loan_start_date", label:"Start date", type:"date", monthOnly:true },
+  { id:"loan_completion_date", label:"Completion date", type:"date", monthOnly:true },
+  { id:"loan_purpose", label:"Purpose", type:"text" },
+];
+
+/* repeating "outstanding loan" sub-form — ECD sheet's own columns */
 const OUTSTANDING_LOAN_ITEM = [
   { id:"loan_type", label:"What type of loan is this?", type:"select", optionsKey:"lenderOptions" },
   { id:"loan_provider", label:"Who provided the loan?", type:"text" },
@@ -197,14 +210,13 @@ const SECTION_0 = {
   section: "Section 0 · Basic information",
   groups: [
     { title: "Centre identification", questions: [
-      { id:"centre_name", label:"Centre name", type:"text", required:true, autocomplete:true, noflags:true,
-        placeholder:"Start typing — pick from the sample list if listed",
-        help:"If the centre is on the sample list, select it to attach its known records." },
+      { id:"centre_name", label:"Centre name", type:"text", required:true, noflags:true,
+        placeholder:"Enter the centre's name" },
       { id:"centre_type", label:"Centre type", type:"select", required:true, other:true, noflags:true,
         options:CENTRE_TYPES,
         help:"Standalone ECD / daycare and home-based childcare use the daycare questionnaire. Everything else uses the ECD centre questionnaire." },
       { id:"year_opened", label:"Year the centre opened", type:"integer", placeholder:"e.g. 2016", half:true },
-      { id:"years_operating", label:"Years in operation", type:"number", half:true },
+      { id:"years_operating", label:"How many years have you been in operation?", type:"number" },
       { id:"religious_affiliation", label:"Religious affiliation of centre (if any)", type:"text" },
       { id:"ownership_type", label:"Ownership type", type:"select", other:true,
         options:["Privately owned business","Faith-based organisation","Community-based organisation","NGO","Home-based / individual"] },
@@ -229,8 +241,6 @@ const SECTION_0 = {
     { title: "Attached primary school", note:"Only for a pre-primary unit inside a primary school. Financials for the unit and for the whole school are collected separately later.", questions: [
       { id:"school_name", label:"Name of the primary school the ECD unit sits within", type:"text",
         showIf:{ field:"centre_type", eq:ATTACHED_TYPE } },
-      { id:"school_grades", label:"Grades / classes offered by the whole school", type:"text", placeholder:"e.g. PP1–Grade 8",
-        showIf:{ field:"centre_type", eq:ATTACHED_TYPE } },
       { id:"school_total_enrolment", label:"Total enrolment of the whole school (all grades)", type:"integer",
         showIf:{ field:"centre_type", eq:ATTACHED_TYPE } },
       { id:"school_ownership", label:"Who owns / manages the primary school?", type:"select", other:true,
@@ -245,9 +255,6 @@ const SECTION_0 = {
         showIf:{ field:"centre_type", eq:ATTACHED_TYPE } },
       { id:"ecd_subsidised_by_school", label:"Does the wider school subsidise the ECD unit, or the other way round?", type:"select",
         options:["School subsidises the ECD unit","ECD unit subsidises the school","Neither — each covers its own costs","Unsure"],
-        showIf:{ field:"centre_type", eq:ATTACHED_TYPE } },
-      { id:"borrower_entity", label:"If the centre borrowed, who would the borrower be?", type:"select",
-        options:["The whole school","The ECD unit only","The individual owner / proprietor","Unsure"],
         showIf:{ field:"centre_type", eq:ATTACHED_TYPE } },
     ]},
   ]
@@ -301,7 +308,7 @@ const ECD_SECTIONS = [
         { id:"enrol_two_years_ago", label:"Enrolment two years ago", type:"integer", half:true },
       ]},
       { title:"Who the centre serves", questions:[
-        { id:"pct_girls", label:"Approximate proportion who are girls", type:"percent", allowUnknown:true },
+        { id:"pct_girls", label:"Approximate gender split", unit:"% girls", type:"percent", allowUnknown:true },
         { id:"pct_refugee", label:"Approximate proportion who are refugees (vs host community)", type:"percent", allowUnknown:true,
           help:"Refugee-hosting impact lens." },
         { id:"pct_low_income", label:"Approximate proportion from low-income households", type:"select",
@@ -320,8 +327,6 @@ const ECD_SECTIONS = [
           options:["No","Instalments","Scholarships / subsidised places","Both"] },
         { id:"fee_collected_pct", label:"Approximately what proportion of fees are actually collected?", type:"percent", allowUnknown:true,
           showIf:{ field:"fee_period", ne:"No fees / free" } },
-        { id:"fee_schedule_photo", label:"Can you show me the fee schedule and I'll take a photo?", type:"photo" },
-        { id:"fee_schedule_note", label:"If no fee schedule is available, note the main fees here.", type:"textarea" },
       ]},
       { title:"Transport & meals", questions:[
         { id:"provides_transport", label:"Do you provide transport to children?", type:"yesno", half:true },
@@ -439,7 +444,7 @@ const ECD_SECTIONS = [
       ]},
       { title:"Financial management", questions:[
         { id:"digital_tools", label:"Do you use digital tools to manage the centre?", type:"yesno" },
-        { id:"digital_tools_use", label:"What are they used for? (select all)", type:"multiselect", other:true,
+        { id:"digital_tools_use", label:"What are these digital tools used for?", type:"multiselect", other:true,
           options:["Back-office processes","Payments","Learning / records"],
           showIf:{ field:"digital_tools", eq:"Yes" } },
         { id:"bank_account", label:"Does the centre have a dedicated bank account?", type:"yesno" },
@@ -510,7 +515,7 @@ const ECD_SECTIONS = [
           options:["Yes, most","Some","Few","Unsure"],
           help:"Women's economic-participation impact lens — mothers in particular." },
       ]},
-      { title:"Interest in new financing", questions:[
+      { title:"Demand for financing", questions:[
         { id:"wants_loan", label:"Are you interested in taking out a new loan?", type:"yesno" },
         { id:"loan_use", label:"What would you use the loan for? (select top 1–3)", type:"multiselect", other:true, maxSelect:3,
           options:LOAN_USES, showIf:{ field:"wants_loan", eq:"Yes" } },
@@ -529,7 +534,7 @@ const ECD_SECTIONS = [
           showIf:{ field:"wants_loan", eq:"Yes" } },
       ]},
       { title:"Investment plans", questions:[
-        { id:"plans_investment", label:"Are you planning investments in the next 12 months?", type:"yesno" },
+        { id:"plans_investment", label:"Are you planning any investments to grow or improve the centre in the next 12 months?", type:"yesno" },
         { id:"investment_areas", label:"What are you planning to invest in?", type:"multiselect", other:true,
           options:INVEST_IN, showIf:{ field:"plans_investment", eq:"Yes" } },
         { id:"investment_goal", label:"What is the main goal of this investment?", type:"select", other:true,
@@ -537,7 +542,7 @@ const ECD_SECTIONS = [
           showIf:{ field:"plans_investment", eq:"Yes" } },
         { id:"investment_cost", label:"How much do you expect this investment to cost?", type:"integer", unit:"MONEY",
           showIf:{ field:"plans_investment", eq:"Yes" } },
-        { id:"investment_finance", label:"How would you finance it?", type:"select", other:true,
+        { id:"investment_finance", label:"How are you planning on financing this investment?", type:"select", other:true,
           options:FINANCE_OPTS, showIf:{ field:"plans_investment", eq:"Yes" } },
       ]},
     ]
@@ -645,22 +650,12 @@ const ECD_SECTIONS = [
           options:["Clearly knew or could check numbers","Reasonable estimates","Vague or unclear"] },
         { id:"obs_area", label:"Area where the centre is located", type:"select", options:AREA_TYPE },
         { id:"obs_red_flags", label:"Any concerns or red flags not captured elsewhere", type:"textarea" },
+        { id:"obs_premises_photo", label:"Photograph of premises", type:"photo",
+          help:"Tap again to add more than one photo." },
       ]},
     ]
   },
 
-  {
-    section: "Section X · Photos & documents",
-    note: "The last step. Attach the consent form and any photographs before you submit.",
-    groups: [
-      { title:"Photos & documents", note:"The last step. Each field takes as many photos as you need — tap it again to add another.", questions:[
-        { id:"obs_consent_form", label:"Signed data privacy consent form", type:"photo",
-          help:"Photograph the completed and signed consent form before leaving the centre." },
-        { id:"photo_premises", label:"Premises", type:"photo",
-          help:"Outside and signage, plus the learning and play areas." },
-      ]},
-    ]
-  },
 ];
 
 /* =====================================================================
@@ -689,8 +684,6 @@ const DAYCARE_SECTIONS = [
           showIf:{ field:"premises_owner", eq:"Rented" } },
         { id:"operates_independently", label:"Does the centre operate independently, or with support from another organization or group?", type:"select",
           options:["Operates fully independently","Receives support from an organization","Receives support from a group","Part of a larger organization"] },
-        { id:"support_source", label:"Which organization or group, and what support?", type:"textarea",
-          showIf:{ field:"operates_independently", ne:"Operates fully independently" } },
       ]},
     ]
   },
@@ -795,7 +788,6 @@ const DAYCARE_SECTIONS = [
         { id:"meals_charged_separately", label:"Are meals charged separately?", type:"yesno", half:true },
         { id:"meal_charge", label:"How much are meals charged?", type:"integer", unit:"MONEY",
           showIf:{ field:"meals_charged_separately", eq:"Yes" } },
-        { id:"fee_schedule_photo", label:"Photo of the fee schedule, if there is one", type:"photo" },
       ]},
       { title:"Collection performance", questions:[
         { id:"pay_on_time", label:"How many parents normally pay on time?", type:"select",
@@ -880,7 +872,6 @@ const DAYCARE_SECTIONS = [
           options:["Exercise book","Receipt book","Mobile money statements","Bank statements","Computer","No records"] },
         { id:"records_frequency", label:"How frequently are records updated?", type:"select",
           options:["Daily","Weekly","Monthly","Irregularly","Never"] },
-        { id:"records_photo", label:"Photo of the records, if the owner is willing", type:"photo" },
       ]},
       { title:"Separation of money", questions:[
         { id:"mobile_money_account", label:"Is there a separate business mobile money account?", type:"yesno" },
@@ -902,8 +893,8 @@ const DAYCARE_SECTIONS = [
           showIf:{ field:"applied_before", eq:"Yes" } },
         { id:"num_outstanding_loans", label:"How many outstanding loans?", type:"integer",
           showIf:{ field:"outstanding_loans", eq:"Yes" } },
-        { id:"outstanding_loan_list", label:"Details for each outstanding loan", type:"repeat",
-          countField:"num_outstanding_loans", item:OUTSTANDING_LOAN_ITEM,
+        { id:"outstanding_loan_list", label:"Existing loans", type:"repeat",
+          countField:"num_outstanding_loans", item:DAYCARE_LOAN_ITEM, max:3,
           showIf:{ field:"outstanding_loans", eq:"Yes" } },
         { id:"missed_repayment", label:"Have you ever missed a loan repayment?", type:"select",
           options:["Never","Once","Occasionally","Frequently"],
@@ -932,7 +923,7 @@ const DAYCARE_SECTIONS = [
           showIf:{ field:"wants_loan", in:["Definitely yes","Probably yes","Not sure"] } },
         { id:"loan_size_wanted", label:"Approximately how much financing would you need?", type:"integer", unit:"MONEY",
           showIf:{ field:"wants_loan", in:["Definitely yes","Probably yes","Not sure"] } },
-        { id:"loan_size_minimum", label:"What is the minimum amount that would still achieve the plan?", type:"integer", unit:"MONEY",
+        { id:"loan_size_minimum", label:"What is the minimum amount you would need to achieve your planned investment?", type:"integer", unit:"MONEY",
           showIf:{ field:"wants_loan", in:["Definitely yes","Probably yes","Not sure"] } },
         { id:"loan_timing", label:"When would you need the financing?", type:"select",
           options:["Immediately","Within 1 month","1–3 months","3–6 months","More than 6 months"],
@@ -988,7 +979,6 @@ const DAYCARE_SECTIONS = [
         { id:"group_constitution", label:"Does the group have a constitution?", type:"yesno", half:true },
         { id:"group_bank_account", label:"Does the group have a bank account?", type:"yesno", half:true },
         { id:"group_mobile_money", label:"Does it have a mobile money account?", type:"yesno" },
-        { id:"savings_group_member", label:"Is the group linked to a VSLA or chama?", type:"yesno" },
       ]},
       { title:"Contributions & borrowing", questions:[
         { id:"group_contribution", label:"How much does each member contribute?", type:"integer", unit:"MONEY", half:true },
@@ -1041,7 +1031,7 @@ const DAYCARE_SECTIONS = [
         { id:"additional_staff", label:"How many additional staff would you need?", type:"integer", half:true },
         { id:"additional_staff_cost", label:"Additional staff cost per month", type:"integer", unit:"MONEY", half:true },
         { id:"additional_revenue", label:"Additional monthly revenue from those children", type:"integer", unit:"MONEY" },
-        { id:"payback_time", label:"How long until the investment starts generating income?", type:"select",
+        { id:"payback_time", label:"How long would it take for the investment to start generating additional income?", type:"select",
           options:["Immediately","Less than 1 month","1–3 months","3–6 months","6–12 months","More than 12 months"] },
       ]},
     ]
@@ -1052,7 +1042,7 @@ const DAYCARE_SECTIONS = [
     groups: [
       { title:"Challenges", questions:[
         { id:"biggest_challenges", label:"What are the biggest challenges facing the centre?", type:"textarea" },
-        { id:"support_type_useful", label:"What type of support would be most useful? (select all)", type:"multiselect", other:true,
+        { id:"support_type_useful", label:"What type of financial support would be most useful?", type:"multiselect", other:true,
           options:["Loan","Grant","Savings","Equipment financing","Working capital","Training","Business management support"] },
       ]},
       { title:"Attitudes to borrowing", questions:[
@@ -1111,22 +1101,12 @@ const DAYCARE_SECTIONS = [
         { id:"obs_area", label:"Area where the centre is located", type:"select", options:AREA_TYPE },
         { id:"ea_overall_potential", label:"Overall financing potential", type:"select", options:["High","Medium","Low"] },
         { id:"ea_comments", label:"Enumerator comments", type:"textarea" },
+        { id:"obs_premises_photo", label:"Photograph of premises", type:"photo",
+          help:"Tap again to add more than one photo." },
       ]},
     ]
   },
 
-  {
-    section: "Section 19 · Photos & documents",
-    note: "The last step. Attach the consent form and any photographs before you submit.",
-    groups: [
-      { title:"Photos & documents", note:"The last step. Each field takes as many photos as you need — tap it again to add another.", questions:[
-        { id:"obs_consent_form", label:"Signed data privacy consent form", type:"photo",
-          help:"Photograph the completed and signed consent form before leaving the centre." },
-        { id:"photo_premises", label:"Premises", type:"photo",
-          help:"Outside and signage, plus the learning and play areas." },
-      ]},
-    ]
-  },
 ];
 
 /* Assemble the full survey for a given branch. Section 0 is always first. */
