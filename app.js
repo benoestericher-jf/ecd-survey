@@ -134,6 +134,10 @@
     if (!cond) return true;
     if (cond.all) return cond.all.every(c => evalCond(c, answers));
     if (cond.any) return cond.any.some(c => evalCond(c, answers));
+    // Country gate: { country: "UG" } shows a question only for that country's
+    // enumerators. Reads the survey's own stored country, so a Uganda record
+    // still reads back correctly when opened on any device.
+    if ("country" in cond) return CO().code === cond.country;
     const v = answerVal(answers, cond.field);
     if ("eq" in cond) return v === cond.eq;
     if ("ne" in cond) return v !== cond.ne;
@@ -340,6 +344,7 @@
 
   function renderSection(opts) {
     opts = opts || {};
+    cancelScheduledRender();
     const prevY = window.scrollY;
     const a = state.current.answers;
     // Always rebuild from the selected centre type so daycare vs ECD routing
@@ -423,6 +428,9 @@
 
   /* ===================== RENDER ONE QUESTION ======================== */
   function renderQuestion(q, a) {
+    // A "note" is guidance shown inline between questions — no input, no
+    // Refused/Doesn't-know chips, and never counted as an unanswered question.
+    if (q.type === "note") return `<div class="qnote">${esc(q.label)}</div>`;
     const val = a[q.id];
     const req = q.required ? ' <span class="req-star">*</span>' : "";
     // help renders behind a tappable ⓘ "explanation bubble"
@@ -604,8 +612,9 @@
       el.addEventListener("change", () => {
         setAnswer(el.dataset.q, el.value === "" ? undefined : el.value);
         persist();
-        // Only repaint when something downstream actually depends on this answer.
-        if (affectsVisibility(el.dataset.q)) renderSection({ keepScroll: true });
+        // Only repaint when something downstream actually depends on this answer,
+        // and never synchronously — see scheduleRender.
+        if (affectsVisibility(el.dataset.q)) scheduleRender();
       });
     });
     // percent unknown
@@ -686,7 +695,7 @@
       if (!cond) return;
       if (cond.all) return cond.all.forEach(walk);
       if (cond.any) return cond.any.forEach(walk);
-      if (cond.field) _visDeps.add(cond.field);
+      if (cond.field) _visDeps.add(cond.field);   // country-only conditions have no field
     };
     const all = [].concat(
       window.SURVEY.buildSections(null),
@@ -702,6 +711,19 @@
     return _visDeps;
   }
   function affectsVisibility(id) { return visibilityDeps().has(id); }
+
+  /* A text field's "change" fires on blur, which on a touch screen happens on
+     POINTERDOWN of the next tap — before that tap's click is delivered. Painting
+     the section synchronously there detaches the control the finger is already
+     on, so the tap is silently lost. Defer the repaint instead: the tap lands on
+     the still-live DOM, its own handler repaints, and this pending one is
+     cancelled by renderSection. */
+  let _pendingRender = null;
+  function scheduleRender() {
+    clearTimeout(_pendingRender);
+    _pendingRender = setTimeout(() => { _pendingRender = null; renderSection({ keepScroll: true }); }, 300);
+  }
+  function cancelScheduledRender() { clearTimeout(_pendingRender); _pendingRender = null; }
 
   function findQ(sec, id) { for (const g of sec.groups) { const q = g.questions.find(q => q.id === id); if (q) return q; } return {}; }
   function setAnswer(id, v) {
@@ -783,7 +805,7 @@
     visibleSectionIndexes().forEach(si => {
       const sec = state.sections[si];
       sec.groups.forEach(g => g.questions.forEach(q => {
-        if (q.type === "repeat") return;
+        if (q.type === "repeat" || q.type === "note") return;
         if (!questionVisible(q, a)) return;
         if (!isAnswered(q, a)) out.push({ qid: q.id, secIdx: si, section: sec.section, label: qLabel(q) });
       }));
@@ -809,7 +831,7 @@
   function answeredCount() {
     const a = state.current.answers; let n = 0;
     visibleSectionIndexes().forEach(si => state.sections[si].groups.forEach(g => g.questions.forEach(q => {
-      if (q.type === "repeat") return;
+      if (q.type === "repeat" || q.type === "note") return;
       if (questionVisible(q, a) && isAnswered(q, a)) n++;
     })));
     return n;
@@ -953,6 +975,7 @@
       const sec = state.sections[si];
       let rows = "";
       sec.groups.forEach(g => g.questions.forEach(q => {
+        if (q.type === "note") return;
         if (!questionVisible(q, a)) return;
         const disp = displayValue(q, a);
         if (disp === "" || disp == null) return;
@@ -980,6 +1003,7 @@
       const sec = state.sections[si];
       let rows = "";
       sec.groups.forEach(g => g.questions.forEach(q => {
+        if (q.type === "note") return;
         if (!questionVisible(q, a)) return;
         const disp = displayValue(q, a);
         if (disp === "" || disp == null) return;

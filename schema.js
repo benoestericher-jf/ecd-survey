@@ -224,6 +224,11 @@ const SECTION_0 = {
         options:["Female","Male","Prefer not to say"],
         help:"Captured for the women-led / women's economic-participation lens." },
       { id:"owner_is_lead", label:"Is the owner also the lead caregiver / head of the centre?", type:"yesno" },
+      /* Uganda addition — relevant to the wider Hilton-supported work. */
+      { id:"has_cmc", label:"Does the centre have a Centre Management Committee (CMC)?", type:"yesno",
+        showIf:{ country:"UG" } },
+      { id:"cmc_constituted", label:"Is the CMC formally constituted / registered?", type:"yesno",
+        showIf:{ all:[{ country:"UG" }, { field:"has_cmc", eq:"Yes" }] } },
     ]},
     { title: "Interviewee", questions: [
       { id:"interviewee_name", label:"Interviewee name", type:"text" },
@@ -296,6 +301,20 @@ const ECD_SECTIONS = [
           showIf:{ field:"age_groups", contains:"3–5 (pre-primary)" } },
         { id:"enrol_6p", label:"# children aged 6+", type:"integer", half:true,
           showIf:{ field:"age_groups", contains:"6+ (school-age / after-school)" } },
+        /* Uganda addition — refugee / host split within each age band. Optional:
+           record only where the director can readily provide it. Host numbers
+           are not asked separately; they are the band total minus the refugee
+           count, which avoids two figures that can contradict each other. */
+        { type:"note", label:"Refugee / host split by age band — Uganda only. Ask only where the director can readily provide it; leave blank otherwise.",
+          showIf:{ country:"UG" } },
+        { id:"enrol_0_2_refugee", label:"of which refugee — aged 0–2", type:"integer", half:true,
+          showIf:{ all:[{ country:"UG" }, { field:"age_groups", contains:"0–2 (infants)" }] } },
+        { id:"enrol_2_3_refugee", label:"of which refugee — aged 2–3", type:"integer", half:true,
+          showIf:{ all:[{ country:"UG" }, { field:"age_groups", contains:"2–3 (toddlers)" }] } },
+        { id:"enrol_3_5_refugee", label:"of which refugee — aged 3–5", type:"integer", half:true,
+          showIf:{ all:[{ country:"UG" }, { field:"age_groups", contains:"3–5 (pre-primary)" }] } },
+        { id:"enrol_6p_refugee", label:"of which refugee — aged 6+", type:"integer", half:true,
+          showIf:{ all:[{ country:"UG" }, { field:"age_groups", contains:"6+ (school-age / after-school)" }] } },
         { id:"max_capacity", label:"Maximum capacity (# children)", type:"integer", half:true },
         { id:"waiting_list", label:"# children on the waiting list", type:"integer", half:true },
         { id:"avg_daily_attendance", label:"Average daily attendance (# children)", type:"integer" },
@@ -306,6 +325,15 @@ const ECD_SECTIONS = [
         { id:"enrol_this_year", label:"Enrolment this year", type:"integer", half:true },
         { id:"enrol_last_year", label:"Enrolment last year", type:"integer", half:true },
         { id:"enrol_two_years_ago", label:"Enrolment two years ago", type:"integer", half:true },
+        /* Uganda addition — a more recent view than the annual figures above. */
+        { type:"note", label:"Enrolment by term — Uganda only. Gives a more recent trend than the annual figures above.",
+          showIf:{ country:"UG" } },
+        { id:"enrol_term_current", label:"Enrolment — current term", type:"integer", half:true,
+          showIf:{ country:"UG" } },
+        { id:"enrol_term_prev1", label:"Enrolment — previous term", type:"integer", half:true,
+          showIf:{ country:"UG" } },
+        { id:"enrol_term_prev2", label:"Enrolment — term before that", type:"integer", half:true,
+          showIf:{ country:"UG" } },
       ]},
       { title:"Who the centre serves", questions:[
         { id:"pct_girls", label:"Approximate gender split", unit:"% girls", type:"percent", allowUnknown:true },
@@ -707,6 +735,19 @@ const DAYCARE_SECTIONS = [
       ]},
       { title:"Totals & attendance", questions:[
         { id:"enrol_total", label:"How many children are enrolled in total?", type:"integer" },
+        /* Uganda additions — refugee split by age, and the last three terms. */
+        { type:"note", label:"Refugee / host split by age — Uganda only. Ask only where the director can readily provide it.",
+          showIf:{ country:"UG" } },
+        { id:"enrol_u1_refugee", label:"of which refugee — under 1 year", type:"integer", half:true, showIf:{ country:"UG" } },
+        { id:"enrol_1_refugee", label:"of which refugee — 1 year", type:"integer", half:true, showIf:{ country:"UG" } },
+        { id:"enrol_2_refugee", label:"of which refugee — 2 years", type:"integer", half:true, showIf:{ country:"UG" } },
+        { id:"enrol_3_refugee", label:"of which refugee — 3 years", type:"integer", half:true, showIf:{ country:"UG" } },
+        { id:"enrol_4_refugee", label:"of which refugee — 4 years", type:"integer", half:true, showIf:{ country:"UG" } },
+        { id:"enrol_5_refugee", label:"of which refugee — 5 years", type:"integer", half:true, showIf:{ country:"UG" } },
+        { type:"note", label:"Enrolment by term — Uganda only.", showIf:{ country:"UG" } },
+        { id:"enrol_term_current", label:"Enrolment — current term", type:"integer", half:true, showIf:{ country:"UG" } },
+        { id:"enrol_term_prev1", label:"Enrolment — previous term", type:"integer", half:true, showIf:{ country:"UG" } },
+        { id:"enrol_term_prev2", label:"Enrolment — term before that", type:"integer", half:true, showIf:{ country:"UG" } },
         { id:"avg_daily_attendance", label:"On an average day, how many children actually attend?", type:"integer" },
         { id:"peak_children", label:"Highest number of children cared for at one time?", type:"integer" },
         { id:"pct_refugee", label:"Approximate proportion who are refugees (vs host community)", type:"percent", allowUnknown:true },
